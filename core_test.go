@@ -9,7 +9,7 @@ import (
 
 type Item struct{}
 
-func (item Item) Get(values url.Values, headers http.Header) (int, interface{}, http.Header) {
+func (item Item) Get(values url.Values, headers http.Header, c map[interface{}]interface{}) (int, interface{}, http.Header) {
 	items := []string{"item1", "item2"}
 	data := map[string][]string{"items": items}
 	return 200, data, nil
