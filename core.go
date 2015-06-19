@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
   "github.com/gorilla/context"
+  "github.com/justinas/alice"
 )
 
 const (
@@ -16,6 +17,8 @@ const (
 	HEAD   = "HEAD"
 	PATCH  = "PATCH"
 )
+
+type Constructor func(http.Handler) http.Handler
 
 // GetSupported is the interface that provides the Get
 // method a resource must support to receive HTTP GETs.
@@ -72,6 +75,8 @@ func NewAPI() *API {
 func (api *API) requestHandler(resource interface{}) http.HandlerFunc {
 	return func(rw http.ResponseWriter, request *http.Request) {
 
+    defer context.Clear(request)
+
 		if request.ParseForm() != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			return
@@ -112,6 +117,7 @@ func (api *API) requestHandler(resource interface{}) http.HandlerFunc {
 		}
 
 		code, data, header := handler(request)
+
 
 		content, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
@@ -159,10 +165,17 @@ func (api *API) AddResourceWithWrapper(resource interface{}, wrapper func(handle
 }
 
 // Start causes the API to begin serving requests on the given port.
-func (api *API) Start(port int) error {
+func (api *API) StartWithMiddleware(port int, f alice.Constructor) error {
 	if !api.muxInitialized {
 		return errors.New("You must add at least one resource to this API.")
 	}
 	portString := fmt.Sprintf(":%d", port)
-	return http.ListenAndServe(portString, context.ClearHandler(api.Mux()))
+  if f == nil {
+    return http.ListenAndServe(portString, api.Mux())
+  }
+  return http.ListenAndServe(portString, f(api.Mux()))
+}
+
+func (api *API) Start(port int) error {
+  return api.StartWithMiddleware(port, nil)
 }
